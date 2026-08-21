@@ -1,15 +1,14 @@
 import matplotlib.pyplot as plt
 class Signal:
-    def __init__(self, origin, velocity, emission_tick, stimulus):
+    def __init__(self, origin, emission_tick, stimulus=1):
         self.origin = origin # tower
         self.epicenter = self.origin.pos.copy() if origin else None #tower may move
-        self.velocity = velocity
         self.emission_tick = emission_tick
         self.stimulus = stimulus
             
     def radius_at(self, tick):
         dt = tick - self.emission_tick
-        return self.velocity * max(dt, 0) if dt >= 0 else 0
+        return max(dt, 0) if self.origin else float('inf')
     
     def plot_wavefront(self, tick):
         radius = self.radius_at(tick)

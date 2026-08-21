@@ -4,47 +4,56 @@ from tpcomp.constructs.signal import Signal
 from tpcomp.constructs.utils import truncate
 
 class Node:
+    MIN = 0
+    MAX = 255
     def __init__(self, pos, 
-                 decay, stim_amp, vel_amp, 
+                 decay, delay, 
                  sensitivity, fovs):
-        self.pos         = np.array(pos, dtype=float) # position (x, y)
-        self.decay       = decay       # decay percentage of internal state per timestep
-        self.stim_amp    = stim_amp    # multiplier for incoming stimulus -> outgoing stimulus = vel_amp * incoming 
-        self.vel_amp     = vel_amp     # multiplier for incoming velocity -> outgoing velocity = vel_amp * incoming
+        self.pos         = np.array(pos, dtype=np.uint8) # position (x, y)
+        self.decay       = decay       # integer decay amount for internal state per timestep
+        self.delay       = delay       # integer augmentation for incoming stimulus 
         self.sensitivity = sensitivity # stimulus threshold to emit a signal
         self.fovs        = list(fovs)  # list of dicts: {'center':..., 'width':...}
-        self.stimulus    = 0.0         # internal state
-        self.pos_history = []
+        self.stimulus    = 0           # internal state
         self.stimulus_history = []
         self._incoming_signals = []    # current timestep signals, not yet processed
     
-    def __str__(self,):
-        t = self
-        return f'f"Pos:{t.pos}\nstim:{t.stimulus:.1f}\nsens:{t.sensitivity:.1f}\ndec:{t.decay:.2f}\namp:{t.stim_amp:.2f}\nvamp:{t.vel_amp:.2f}\nFOV:{len(t.fovs)}"'
+    # def __str__(self,):
+    #     t = self
+    #     return f'f"Pos:{t.pos}\nstim:{t.stimulus:.1f}\nsens:{t.sensitivity:.1f}\ndec:{t.decay:.2f}\namp:{t.stim_amp:.2f}\nvamp:{t.vel_amp:.2f}\nFOV:{len(t.fovs)}"'
+    
+    @property
+    def triggered(self,):
+        return self.stimulus >= self.sensitivity
 
-    def decay_stimulus(self):
-        self.stimulus *= self.decay
-        self.stimulus = truncate(self.stimulus, 6)
+    def reflect(self):
+        "Step 1 (disregard semantic inconsistencies, these steps are in correct numerical order)"
+        self.stimulus = max(Node.MIN, self.stimulus - self.decay)
 
-    def receive_signal(self, signal):
+    def stage(self, signal, tick):
+        "Step 2"
         accepted = False
         if not (signal.origin is self) \
-        and not (signal in self._incoming_signals):
+        and not (signal in self._incoming_signals) \
+        and not self.ignore(signal, tick):
             accepted = True
             self._incoming_signals.append(signal)
         return accepted
     
-    def process_incoming_signals(self,):
+    def commit(self,):
+        "Step 3"
         for signal in self._incoming_signals:
-            self.stimulus += math.log(
-                max(0, signal.stimulus)
-                +1
-            )
-
-    def resolve(self,):
+            self.stimulus = min(Node.MAX, self.stimulus + signal.stimulus)
         self._incoming_signals = []
+
+    # response / feedback
+    def response(self):
+        "Step 4"
+        if self.triggered:
+            jitter = min(Node.MAX, self.stimulus + self.delay)
+            return Signal(self, jitter)  # emit 'this' tick
     
-    def can_see(self, signal, tick):
+    def ignore(self, signal, tick):
         # Check if vector from self to source is within ANY of my FoVs
         r1 = signal.radius_at(tick)
         r0 = signal.radius_at(tick-1)
@@ -61,18 +70,7 @@ class Node:
                 in_fov = lower <= angle <= upper if lower < upper else (angle >= lower or angle <= upper)
                 if in_fov: 
                     break
-        return in_fov and in_range
-    
-    def check_and_emit(self, tick, velocity):
-        # Only emit once; only if stimulus now exceeds sensitivity
-        if self.stimulus >= self.sensitivity:
-            # Velocity amplifier acts on base velocity=1
-            out_stim = self.stimulus * self.stim_amp
-            # out_vel = 1.0 * self.vel_amp
-            out_vel = velocity * self.vel_amp
-            return Signal(self, out_vel, tick, out_stim)  # emit 'this' tick
-        return None
+        return not (in_fov and in_range) #if in fov and in range, we listen
     
     def record_history(self):
         self.stimulus_history.append(self.stimulus)
-        self.pos_history.append(self.pos.copy())

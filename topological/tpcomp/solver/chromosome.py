@@ -1,49 +1,77 @@
-from tpcomp.solver.gene import Structural, Position, \
+from tpcomp.solver.gene import Position, \
     Decay, StimulusAmp, \
     VelocityAmp, Sensitivity, \
-    FieldOfViewCenter1, FieldOfViewWidth1, \
-    FieldOfViewCenter2, FieldOfViewWidth2
+    FieldOfViewCenter, FieldOfViewWidth, \
+    Decision
 
-class ObservationChromosome:
+class Chromosome:
+    sequence = {}
+    def __repr__(self):
+        msg = f'{type(self).__name__}('
+        msg += '\n  '.join(f'{key}={value}' for key, value in self.sequence.items())
+        msg += '\n)'
+        return msg
+            
+
+class ObservationChromosome(Chromosome):
     def __init__(self, sequence=None):        
             if sequence is None:
-                sequence = {
-                    0: Structural(value=False)
-                }
+                sequence = {}
                 sequence.update(
                     {
-                        i+1: gene_type.random() 
+                        i: gene_type.random() 
                         for i, gene_type in enumerate((
                             Position(),
                             Decay(),
                             StimulusAmp(),
                             VelocityAmp(),
                             Sensitivity(),
+                            #FOV arity=0
                         ))
                     }
                 )
             self.sequence = sequence
 
-class ActionChromosome:
+class ActionChromosome(Chromosome):
     def __init__(self, sequence=None):        
         if sequence is None:
-            sequence = {
-                0: Structural(value=True)
-            }
+            sequence = {}
             sequence.update(
                 {
-                    i+1: gene_type.random() 
+                    i: gene_type.random() 
                     for i, gene_type in enumerate((
                         Position(),
                         Decay(),
                         StimulusAmp(),
                         VelocityAmp(),
                         Sensitivity(),
-                        FieldOfViewCenter1(),
-                        FieldOfViewWidth1(),
-                        FieldOfViewCenter2(),
-                        FieldOfViewWidth2()
+                        FieldOfViewCenter(), 
+                        FieldOfViewWidth(),
+
+                        # should be resolved via arity... deferred for now
+                        FieldOfViewCenter(),
+                        FieldOfViewWidth()
                     ))
                 }
             )
         self.sequence = sequence
+
+
+class LutChromosome(Chromosome):
+    def __init__(self, sequence=None):        
+            if sequence is None:
+                sequence = {}
+                sequence.update(
+                    {
+                        i: gene_type.random() 
+                        for i, gene_type in enumerate((
+                            Decision(),
+                            # should be resolved via arity... deferred for now; arity=5
+                            Decision(),
+                            Decision(),
+                            Decision(),
+                            Decision(),
+                        ))
+                    }
+                )
+            self.sequence = sequence

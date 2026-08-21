@@ -1,7 +1,9 @@
+from typing import List, Int
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 import logging
+from tpcomp.inference.jitter import int_to_jitter
 from tpcomp.constructs.node import Node
 from tpcomp.constructs.signal import Signal
 
@@ -13,11 +15,11 @@ class Topology:
 
         self.obs_nodes = []
         for chrom in obs_chrom.values():
-            pos = chrom.sequence[1] 
-            decay = chrom.sequence[2]
-            stim_amp = chrom.sequence[3]
-            vel_amp = chrom.sequence[4]
-            sensitivity = chrom.sequence[5]
+            pos = chrom.sequence[0] 
+            decay = chrom.sequence[1]
+            stim_amp = chrom.sequence[2]
+            vel_amp = chrom.sequence[3]
+            sensitivity = chrom.sequence[4]
             fovs = []
             self.obs_nodes.append(
                 Node(
@@ -32,14 +34,14 @@ class Topology:
 
         self.act_nodes = []
         for chrom in act_chrom.values():
-            pos = chrom.sequence[1]
-            decay = chrom.sequence[2]
-            stim_amp = chrom.sequence[3]
-            vel_amp = chrom.sequence[4]
-            sensitivity = chrom.sequence[5]
+            pos = chrom.sequence[0]
+            decay = chrom.sequence[1]
+            stim_amp = chrom.sequence[2]
+            vel_amp = chrom.sequence[3]
+            sensitivity = chrom.sequence[4]
             fovs = [
-                [chrom.sequence[6], chrom.sequence[7]],
-                [chrom.sequence[8], chrom.sequence[9]]
+                [chrom.sequence[5], chrom.sequence[6]],
+                [chrom.sequence[7], chrom.sequence[8]]
             ]
             self.act_nodes.append(
                 Node(
@@ -58,9 +60,7 @@ class Topology:
         self.velocity = 1
         self.tick = 0
         self.signals = []
-        self._state = []
-        self._next_receptor = 0
-        self._abort = False
+        self._abort = False # energy observation
 
     def reset(self,):
         Topology.__init__(self, self.genome)
@@ -72,6 +72,7 @@ class Topology:
     def check_points_outside(self, center, radius, points):
         """
             Identifies if a wavefront has yet to reach a node
+            Can be done more efficiently.
         """
         xc, yc = center
         r_sq = radius ** 2
@@ -108,62 +109,57 @@ class Topology:
         self.signals = [self.signals[i] for i in mask]
 
 
-    def receive(self, ob):
-        for node in self.all_nodes:
-            node.decay_stimulus()
+    def stage(self, stimulus: List[Int]):
+        for value in stimulus:
+            signals = int_to_jitter(value)
+            for i, node in enumerate(self.obs_nodes):
+                node.reflect()
+                if not signals[i]:
+                    incoming_signal = Signal(
+                        None,
+                        self.tick
+                    ) 
+                    node.stage(
+                        incoming_signal,
+                        self.tick
+                    )
 
-        stream = ob.tolist()
-        next_receiver = 0
-        while len(stream):
-            receiver = self.obs_nodes[next_receiver]
-            value = stream.pop(0)
-            receiver.receive_signal(
-                Signal(None, 
-                    self.velocity, 
-                    self.tick, 
-                    value
-                )
-            )
-            next_receiver  = (next_receiver + 1) % len(self.obs_nodes)
-
-        # propagate wavefronts
-        for sig in self.signals:
-            for node in self.act_nodes:
-                if node.can_see(sig, self.tick):
-                    node.receive_signal(sig)
-
-        
-        # Generate new wavefront for accepted signals
-        state = []
-        for i, node in enumerate(self.all_nodes):
-            ## consolidate incoming stimulus
-            node.process_incoming_signals()
-
-            ## Emit if sensitivity is met
-            new_signal = node.check_and_emit(self.tick, self.velocity)
-
-            ## station keeping
-            ### prune node signals that have been processed
-            node.resolve()
-            ### track stimulus
+        new_signals = []
+        for node in self.obs_nodes:
+            node.commit()
+            new_signal = node.response()
             node.record_history()
             if new_signal:
-                self.signals.append(new_signal)
-            state.append((i, new_signal is not None)) # node_index, active_status
-        ## prune superfluous wavefronts
-        self.prune_signals() # before tick change
-        self.tick += 1
-        self._state = state
-        return self.get_state()
+                new_signals.append(new_signal)
+
+        
+        self.signals.extend(new_signals)
+        
     
+    def response(self,):
+        # while not in stasis - NON-HALTING
+        for node in self.act_nodes:
+            node.reflect()
+            for signal in self.signals:
+                node.stage(signal, self.tick)
+
+        new_signals = []
+        for node in self.act_nodes:
+            node.commit()
+            new_signal = node.response()
+            node.record_history()
+            if new_signal:
+                new_signals.append(new_signal)
+        
+        self.prune_signals() # before tick change
+        self.signals.extend(new_signals)
+        self.tick += 1
 
     def get_state(self,):
         """
             Retrieve which act_nodes are activated
         """
-        mask = [active for (index, active) in self._state][len(self.obs_nodes):]
-        state = np.arange(len(self.act_nodes))
-        return tuple(state[mask])
+        return np.array([node.triggered for node in self.act_nodes])
 
 
     def plot(self,):
@@ -223,6 +219,11 @@ class Topology:
             signal.plot_wavefront(self.tick)
         plt.gca().set_aspect('equal')
         plt.show()
+
+    
+
+            
+
 
 
 

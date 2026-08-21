@@ -13,12 +13,9 @@ class Gene:
                 values.append(Gene.rng.integers(self.low, self.high))
             elif type(self.low) is float:
                 values.append(Gene.rng.uniform(self.low, self.high))
+            elif type(self.low) is bool:
+                values.append(Gene.rng.choice([self.low, self.high]))
         return values if self.arity > 1 else values[0]
-
-@dc 
-class Structural:
-    arity: int = 1
-    value: bool = True  #structural=True, informational=False
 
 @dc
 class Position(Gene):
@@ -63,14 +60,7 @@ class FieldOfViewWidth(Gene):
     high: float = np.pi
 
 @dc
-class FieldOfViewCenter2(Gene):
+class Decision(Gene):
     arity: int = 1
-    low:  float = 0.0
-    high: float = 2 * np.pi
-
-@dc
-class FieldOfViewWidth2(Gene):
-    arity: int = 1
-    low:  float = np.pi / 6
-    high: float = np.pi
-
+    low: bool = False
+    high: bool = True
