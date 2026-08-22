@@ -1,4 +1,4 @@
-from typing import List, Int
+from typing import List
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
@@ -6,27 +6,28 @@ import logging
 from tpcomp.inference.jitter import int_to_jitter
 from tpcomp.constructs.node import Node
 from tpcomp.constructs.signal import Signal
+from collections import Counter
 
 class Topology:
     def __init__(self, genome):
         self.genome = genome
-        act_chrom = genome.sequence.get('actions')
-        obs_chrom = genome.sequence.get('observations')
+        act_chrom = genome.actions
+        obs_chrom = genome.observations
+        self.lut = genome.lut
+        self.action_space = 4
 
         self.obs_nodes = []
         for chrom in obs_chrom.values():
             pos = chrom.sequence[0] 
             decay = chrom.sequence[1]
-            stim_amp = chrom.sequence[2]
-            vel_amp = chrom.sequence[3]
-            sensitivity = chrom.sequence[4]
+            delay = chrom.sequence[2]
+            sensitivity = chrom.sequence[3]
             fovs = []
             self.obs_nodes.append(
                 Node(
                     pos,
                     decay,
-                    stim_amp,
-                    vel_amp,
+                    delay,
                     sensitivity,
                     fovs
                 )
@@ -34,21 +35,19 @@ class Topology:
 
         self.act_nodes = []
         for chrom in act_chrom.values():
-            pos = chrom.sequence[0]
+            pos = chrom.sequence[0] 
             decay = chrom.sequence[1]
-            stim_amp = chrom.sequence[2]
-            vel_amp = chrom.sequence[3]
-            sensitivity = chrom.sequence[4]
+            delay = chrom.sequence[2]
+            sensitivity = chrom.sequence[3]
             fovs = [
-                [chrom.sequence[5], chrom.sequence[6]],
-                [chrom.sequence[7], chrom.sequence[8]]
+                [chrom.sequence[4], chrom.sequence[5]],
+                [chrom.sequence[6], chrom.sequence[7]]
             ]
             self.act_nodes.append(
                 Node(
                     pos,
                     decay,
-                    stim_amp,
-                    vel_amp,
+                    delay,
                     sensitivity,
                     fovs
                 )
@@ -57,9 +56,9 @@ class Topology:
         self.all_nodes = [*self.obs_nodes]
         self.all_nodes.extend(self.act_nodes)
         
-        self.velocity = 1
         self.tick = 0
         self.signals = []
+        self._energy_history = []
         self._abort = False # energy observation
 
     def reset(self,):
@@ -74,13 +73,14 @@ class Topology:
             Identifies if a wavefront has yet to reach a node
             Can be done more efficiently.
         """
-        xc, yc = center
+        xc, yc = center.tolist()
         r_sq = radius ** 2
         
         for px, py in points:
             # Calculate squared distance
-            dist_sq = (px - xc)**2 + (py - yc)**2
+            dist_sq = (int(px) - xc)**2 + (int(py) - yc)**2     
             if dist_sq > r_sq:
+                logging.debug(f'Point {px, py, dist_sq} found outside wavefront {xc, yc, r_sq}')
                 return True # Found a point outside
                 
         return False # All nodes are inside or on the wavefront
@@ -90,28 +90,43 @@ class Topology:
         """
             Remove signals whose wavefront has encompassed all nodes
         """
-        if len(self.signals)>999:
-            logging.error('Topology abandoned due to enumerable resources limit')
-            self._abort = True
+        if len(self.signals):
+            if len(self.signals)>999:
+                logging.error('Topology should be abandoned due to enumerable resources limit')
+                self._abort = True
 
-        mask = []
-        node_pos = [node.pos for node in self.all_nodes]
-        for i, signal in enumerate(self.signals):
-            if signal.epicenter is not None:
-                keep = self.check_points_outside(
-                    signal.epicenter, 
-                    signal.radius_at(self.tick), 
-                    node_pos
-                )
-                if keep:
-                    mask.append(i)
-        
-        self.signals = [self.signals[i] for i in mask]
+            logging.debug(f'Checking Wavefronts @t={self.tick}')
+            mask = []
+            node_pos = [node.pos for node in self.all_nodes]
+            for i, signal in enumerate(self.signals):
+                logging.debug(f'Wavefront: {signal.epicenter} @t={self.tick} -> {signal.radius_at(self.tick)}')
+                if signal.epicenter is not None:
+                    keep = self.check_points_outside(
+                        signal.epicenter, 
+                        signal.radius_at(self.tick), 
+                        node_pos
+                    )
+                    if keep:
+                        mask.append(i)
+                    else:
+                        logging.debug(f'All points within wavefront. Wavefront {signal} staged for pruning.')
+            if len(mask) < len(self.signals):
+                logging.debug(f'Pruning Signals {[self.signals[i] for i in range(len(self.signals)) if i not in mask]}')
+            else:
+                logging.debug(f'All Wavefronts Valid.')
+            self.signals = [self.signals[i] for i in mask]
 
+    def update_energy(self,):
+        energy = 0
+        for node in self.act_nodes:
+            energy += node.stimulus
+        self._energy_history.append(int(energy))
 
-    def stage(self, stimulus: List[Int]):
+    def stage(self, stimulus: List[int]):
         for value in stimulus:
-            signals = int_to_jitter(value)
+            signals = int_to_jitter(value, len(self.obs_nodes))
+            logging.debug(f'Stimulus Received: {value}')
+            logging.debug(f'Stimulus Processed: {signals}')
             for i, node in enumerate(self.obs_nodes):
                 node.reflect()
                 if not signals[i]:
@@ -132,29 +147,57 @@ class Topology:
             if new_signal:
                 new_signals.append(new_signal)
 
-        
         self.signals.extend(new_signals)
+        logging.debug("Topology Staging Complete")
+        for i in range(len(self.obs_nodes)):
+            logging.debug(f"Obs_Node {i}: {self.obs_nodes[i]}")
+        logging.debug(f"Topology {self.signals}")
         
     
     def response(self,):
-        # while not in stasis - NON-HALTING
-        for node in self.act_nodes:
-            node.reflect()
-            for signal in self.signals:
-                node.stage(signal, self.tick)
-
-        new_signals = []
-        for node in self.act_nodes:
-            node.commit()
-            new_signal = node.response()
-            node.record_history()
-            if new_signal:
-                new_signals.append(new_signal)
+        # while not in stasis - NON-HALTING, continue this loop, or only 1 tick
         
-        self.prune_signals() # before tick change
-        self.signals.extend(new_signals)
-        self.tick += 1
+        logits = Counter()
 
+        stasis = False
+        self.update_energy()
+        max_iter = (Node.MAX - Node.MIN) * len(self.act_nodes)
+        for i in range(max_iter):
+            for node in self.act_nodes:
+                node.reflect()
+                for signal in self.signals:
+                    node.stage(signal, self.tick)
+
+            new_signals = []
+            for node in self.act_nodes:
+                node.commit()
+                new_signal = node.response()
+                node.record_history()
+                if new_signal:
+                    logging.debug(f'Act_Node propagated new signal @t={self.tick}')
+                    new_signals.append(new_signal)
+            
+            self.prune_signals() # before tick change
+            self.signals.extend(new_signals)
+            logging.debug(f'Signal Count: {len(self.signals)}')
+            self.tick += 1
+            self.update_energy()
+            stasis = self._energy_history[-1] == self._energy_history[-2]
+            state = self.get_state()
+            res = self.lut.lookup(state, self.action_space)
+            if res is not None:
+                logits.update([res])
+
+            if len(self.signals) == 0 and stasis:
+                logging.debug(f"Stasis encountered at timestep {self.tick}. Terminating Early.")
+                break
+
+            if self._abort:
+                logging.debug('Aborting to avoid RuntimeOOMError.')
+                break
+
+        return logits
+        
     def get_state(self,):
         """
             Retrieve which act_nodes are activated
@@ -219,89 +262,3 @@ class Topology:
             signal.plot_wavefront(self.tick)
         plt.gca().set_aspect('equal')
         plt.show()
-
-    
-
-            
-
-
-
-
-
-
-
-
-
-
-# -------------------------------------------------
-
-
-    # def possible_states(self,):
-    #     # arr = [i for i in range(len(self.synapses))]
-    #     # n = len(arr)
-    #     # res = []
-
-    #     # # Loop through all possible subsets
-    #     # for i in range(1 << n):
-    #     #     subset = []
-
-    #     #     # Loop through all elements
-    #     #     for j in range(n):
-            
-    #     #         # Check if jth bit is set
-    #     #         if i & (1 << j):
-    #     #             subset.append(arr[j])
-
-    #     #     # Add subset to result
-    #     #     res.append(subset)
-
-    #     # return res
-    #     s = list(range(len(self.synapses)))
-    #     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
-
-    # def state_action_mapping(self, n_actions):
-    #     # states = list(self.possible_states())
-    #     # mapping = {i: [] for i in range(n_actions)}
-    #     # for action, state in enumerate(states):
-    #     #     mapping[action%n_actions].append(state)
-
-    #     states = list(self.possible_states())
-    #     mapping = {}
-    #     for action, state in enumerate(states):
-    #         mapping[tuple(state)] = int(action%n_actions)
-    #     return mapping
-
-    # def get_action_from_state(self, subset, n_actions):
-    #     """
-    #     Returns the index of a sorted subset in the lexicographically ordered powerset
-    #     of a sorted original list.
-
-    #     Args:
-    #         original_list: The sorted list representing the original set.
-    #         subset: The sorted list representing the subset.
-
-    #     Returns:
-    #         The integer index of the subset in the powerset.
-    #     """
-    #     # Ensure both lists are sorted for the binary counting method to work correctly
-
-    #     # Create a mapping from element value to its index in the original list
-    #     elem_to_index = {elem: i for i, elem in enumerate(list(range(len(self.synapses))))}
-
-    #     index = 0
-    #     # Iterate through the subset elements and set the corresponding bit in the index
-    #     for elem in subset:
-    #         if elem in elem_to_index:
-    #             # The bit position corresponds to the element's index in the original list.
-    #             # We use bitwise OR to set the bit.
-    #             # The order in the powerset generally corresponds to standard binary counting.
-    #             # The snippet builds the index in a way that the 0-th element corresponds to the 0-th bit (1<<0)
-    #             # This bit corresponds to the least significant position. The following logic ensures that.
-    #             bit_position = elem_to_index[elem]
-    #             index |= (1 << bit_position)
-    #         else:
-    #             # Handle cases where the element is not in the original list (error or unexpected input)
-    #             raise ValueError(f"Element {elem} not found in original list")
-
-    #     action = index % n_actions
-    #     return action

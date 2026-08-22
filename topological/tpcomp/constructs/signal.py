@@ -8,7 +8,7 @@ class Signal:
             
     def radius_at(self, tick):
         dt = tick - self.emission_tick
-        return max(dt, 0) if self.origin else float('inf')
+        return max(dt, 0)
     
     def plot_wavefront(self, tick):
         radius = self.radius_at(tick)

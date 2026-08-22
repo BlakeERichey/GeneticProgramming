@@ -4,7 +4,7 @@ import numpy as np
 
 class Gene:
     # loci <-> index: [start, stop) # inclusive, exclusive
-    rng = np.random.default_rng(seed=42)
+    rng = np.random.default_rng(seed=43)
 
     def random(self):
         values = []
@@ -20,32 +20,26 @@ class Gene:
 @dc
 class Position(Gene):
     arity: int = 2 
-    low:  float = 0.0
-    high: float = 1.0
+    low:  int = 0
+    high: int = 255
 
 @dc
 class Decay(Gene):
     arity: int = 1
-    low:  float = 0.0
-    high: float = 1.0
+    low:  int = 0
+    high: int = 8
 
 @dc
-class StimulusAmp(Gene):
+class Delay(Gene):
     arity: int = 1
-    low:  float = 0.0
-    high: float = 1.0
-
-@dc
-class VelocityAmp(Gene):
-    arity: int = 1
-    low:  float = 0.0
-    high: float = 1.0
+    low:  int = 0
+    high: int = 8
 
 @dc
 class Sensitivity(Gene):
     arity: int = 1
-    low:  float = 0.0
-    high: float = 1.0
+    low:  int = 1
+    high: int = 8
 
 @dc
 class FieldOfViewCenter(Gene):
