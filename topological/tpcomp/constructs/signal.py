@@ -5,6 +5,7 @@ class Signal:
         self.epicenter = self.origin.pos.copy() if origin else None #tower may move
         self.emission_tick = emission_tick
         self.stimulus = stimulus
+        self._wavefront = None
             
     def radius_at(self, tick):
         dt = tick - self.emission_tick

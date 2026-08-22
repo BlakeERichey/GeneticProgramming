@@ -63,13 +63,16 @@ class Node:
 
         r1 = signal.radius_at(tick)
         r0 = signal.radius_at(tick-1)
-        dist = np.linalg.norm(self.pos - signal.epicenter)
-        in_range = (r0 < dist <= r1) # wasnt visible last tick, is now
+        # dist = np.linalg.norm(self.pos - signal.epicenter)
+        # in_range = (r0 < dist <= r1) # wasnt visible last tick, is now
+        dist_sq = (int(signal.epicenter[1]) - int(self.pos[0]))**2 + \
+              (int(signal.epicenter[0]) - int(self.pos[1]))**2
+        in_range = (r0 * r0 < dist_sq <= r1 * r1)
 
         in_fov = False if self.fovs else True
-        logging.debug(f'Node @ {self.pos} checking signal {signal.epicenter} ({r0}, {r1}) for reception determination.')
+        # logging.debug(f'Node @ {self.pos} checking signal {signal.epicenter} ({r0}, {r1}) for reception determination.')
         if in_range:
-            logging.debug('Signal In_Range.')
+            # logging.debug('Signal In_Range.')
             vec = signal.epicenter - self.pos
             angle = np.arctan2(vec[1], vec[0]) % (2 * np.pi)
             for fov in self.fovs:
@@ -77,7 +80,7 @@ class Node:
                 lower, upper = (c - w/2) % (2*np.pi), (c + w/2) % (2*np.pi)
                 in_fov = lower <= angle <= upper if lower < upper else (angle >= lower or angle <= upper)
                 if in_fov: 
-                    logging.debug('Signal In_FOV.')
+                    # logging.debug('Signal In_FOV.')
                     break
         return not (in_fov and in_range) #if in fov and in range, we listen
     

@@ -14,7 +14,7 @@ class Topology:
         act_chrom = genome.actions
         obs_chrom = genome.observations
         self.lut = genome.lut
-        self.action_space = 4
+        self.action_space = 10
 
         self.obs_nodes = []
         for chrom in obs_chrom.values():
@@ -80,7 +80,7 @@ class Topology:
             # Calculate squared distance
             dist_sq = (int(px) - xc)**2 + (int(py) - yc)**2     
             if dist_sq > r_sq:
-                logging.debug(f'Point {px, py, dist_sq} found outside wavefront {xc, yc, r_sq}')
+                #logging.debug(f'Point {px, py, dist_sq} found outside wavefront {xc, yc, r_sq}')
                 return True # Found a point outside
                 
         return False # All nodes are inside or on the wavefront
@@ -95,11 +95,11 @@ class Topology:
                 logging.error('Topology should be abandoned due to enumerable resources limit')
                 self._abort = True
 
-            logging.debug(f'Checking Wavefronts @t={self.tick}')
+            #logging.debug(f'Checking Wavefronts @t={self.tick}')
             mask = []
             node_pos = [node.pos for node in self.all_nodes]
             for i, signal in enumerate(self.signals):
-                logging.debug(f'Wavefront: {signal.epicenter} @t={self.tick} -> {signal.radius_at(self.tick)}')
+                #logging.debug(f'Wavefront: {signal.epicenter} @t={self.tick} -> {signal.radius_at(self.tick)}')
                 if signal.epicenter is not None:
                     keep = self.check_points_outside(
                         signal.epicenter, 
@@ -108,12 +108,12 @@ class Topology:
                     )
                     if keep:
                         mask.append(i)
-                    else:
-                        logging.debug(f'All points within wavefront. Wavefront {signal} staged for pruning.')
-            if len(mask) < len(self.signals):
-                logging.debug(f'Pruning Signals {[self.signals[i] for i in range(len(self.signals)) if i not in mask]}')
-            else:
-                logging.debug(f'All Wavefronts Valid.')
+                    # else:
+                    #     #logging.debug(f'All points within wavefront. Wavefront {signal} staged for pruning.')
+            # if len(mask) < len(self.signals):
+            #     #logging.debug(f'Pruning Signals {[self.signals[i] for i in range(len(self.signals)) if i not in mask]}')
+            # else:
+            #     #logging.debug(f'All Wavefronts Valid.')
             self.signals = [self.signals[i] for i in mask]
 
     def update_energy(self,):
@@ -125,8 +125,8 @@ class Topology:
     def stage(self, stimulus: List[int]):
         for value in stimulus:
             signals = int_to_jitter(value, len(self.obs_nodes))
-            logging.debug(f'Stimulus Received: {value}')
-            logging.debug(f'Stimulus Processed: {signals}')
+            #logging.debug(f'Stimulus Received: {value}')
+            #logging.debug(f'Stimulus Processed: {signals}')
             for i, node in enumerate(self.obs_nodes):
                 node.reflect()
                 if not signals[i]:
@@ -148,10 +148,10 @@ class Topology:
                 new_signals.append(new_signal)
 
         self.signals.extend(new_signals)
-        logging.debug("Topology Staging Complete")
-        for i in range(len(self.obs_nodes)):
-            logging.debug(f"Obs_Node {i}: {self.obs_nodes[i]}")
-        logging.debug(f"Topology {self.signals}")
+        #logging.debug("Topology Staging Complete")
+        # for i in range(len(self.obs_nodes)):
+        #     #logging.debug(f"Obs_Node {i}: {self.obs_nodes[i]}")
+        # #logging.debug(f"Topology {self.signals}")
         
     
     def response(self,):
@@ -174,12 +174,12 @@ class Topology:
                 new_signal = node.response()
                 node.record_history()
                 if new_signal:
-                    logging.debug(f'Act_Node propagated new signal @t={self.tick}')
+                    #logging.debug(f'Act_Node propagated new signal @t={self.tick}')
                     new_signals.append(new_signal)
             
             self.prune_signals() # before tick change
             self.signals.extend(new_signals)
-            logging.debug(f'Signal Count: {len(self.signals)}')
+            #logging.debug(f'Signal Count: {len(self.signals)}')
             self.tick += 1
             self.update_energy()
             stasis = self._energy_history[-1] == self._energy_history[-2]
@@ -189,11 +189,11 @@ class Topology:
                 logits.update([res])
 
             if len(self.signals) == 0 and stasis:
-                logging.debug(f"Stasis encountered at timestep {self.tick}. Terminating Early.")
+                #logging.debug(f"Stasis encountered at timestep {self.tick}. Terminating Early.")
                 break
 
             if self._abort:
-                logging.debug('Aborting to avoid RuntimeOOMError.')
+                #logging.debug('Aborting to avoid RuntimeOOMError.')
                 break
 
         return logits

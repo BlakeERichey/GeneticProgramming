@@ -3,8 +3,10 @@
 - alleles / dynamic topology construction
 
 - Train Test Valid Split
-- RL Env
 - Computer Vision
+    - [X] profile
+    - [ ] Refactor Signal
+- RL Env
 - LLM Datasets
 
 # Done

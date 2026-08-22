@@ -74,6 +74,12 @@ class LutChromosome(Chromosome):
                             Decision(),
                             Decision(),
                             Decision(),
+                            Decision(),
+                            Decision(),
+                            Decision(),
+                            Decision(),
+                            Decision(),
+                            Decision(),
                         ))
                     }
                 )
