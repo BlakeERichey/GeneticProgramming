@@ -1,4 +1,5 @@
 from tpcomp.solver.chromosome import ObservationChromosome, ActionChromosome, LutChromosome
+from tpcomp.solver.gene import StrucuralGene
 
 class Genome:
     def __init__(self, n_obs, n_act):

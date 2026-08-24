@@ -91,7 +91,18 @@ class Topology:
             Remove signals whose wavefront has encompassed all nodes
         """
         if len(self.signals):
-            if len(self.signals)>999:
+            # actual practical limit is closer to D_max * 2 * len(all_nodes)
+            # this value only emerges if each signal produces at least 2 more
+            # They are emitting with higher frequency than being 
+            # absorded by clamps.
+            # Theoretical upper bounds < BigSigma(T_stasis) * len(all_nodes) <-> one new signal per node per timestep
+            # = (T_stasis)(T_stasis + 1) / 2 * len(all_nodes)
+            # Since stasis is topologically enforced, signals must dissapate within this limit and 
+            # therefore signals cannot exceed this quantity.
+            # Jitter enforces that not all nodes *can* emit a signal at each timestep, 
+            # so the practical limit is much lower and mathematically constrainable.
+            # for this example ~96k = len(all_nodes) * D_max is the practical limit.
+            if len(self.signals)>4096:
                 logging.error('Topology should be abandoned due to enumerable resources limit')
                 self._abort = True
 
@@ -161,7 +172,9 @@ class Topology:
 
         stasis = False
         self.update_energy()
-        max_iter = (Node.MAX - Node.MIN) * len(self.act_nodes)
+        #Actual Hard Upper Bound = <= 255k + D_max, where D_max = maximum distance between 2 nodes.
+        #(Max - Min) * k + sqrt((Max - Min) ** 2 + (Max - Min) ** 2)
+        max_iter = (Node.MAX - Node.MIN) * (len(self.act_nodes))
         for i in range(max_iter):
             for node in self.act_nodes:
                 node.reflect()
