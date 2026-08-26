@@ -1,16 +1,23 @@
 # TODO
-- alleles / dynamic topology construction
-    - Species
-    - [X] LUT Generation with >minimum decidable nodes
-- Genome Refactor
-    - Species Chromosomes
-    - Individual Chromosomes
-    - Haplotype
-    - Allele -> Strip Gene metadata (e.g. high, low)
-    - Chromosome accept Species Structure
-    - Genome accepts Species; genes themselves are fixed cardinality
-- Topology Acceptance Refactor
-- Individual
+- Topology Accept Genome Refactor
+- [ ] Refactor Signal
+    - [X] Manhattan Distance
+    - [ ] Jitter
+    - [ ] Signal Needs a Genome
+- [ ] Bit compression
+    - [X] FOV -> UP DOWN LEFT RIGHT ? ABOVE BELOW ? - cardinal directions truth table
+    - [ ] Unique POS
+- Node Max Min
+- lookup method
+- Response affordance (max time allowed... must answer before ready)
+- [X] Individual
+Genetic Algorithm Enhancements
+    - genome.to_list?
+    - Genome.to_binary
+
+BioSim Revisions
+    - Change nucleotide to True/False
+    - Leverage Codons as sequences of Nucleotides
 
 - Dynamic Species customization
     - FieldOfView definable for a species
@@ -25,11 +32,6 @@
 
 - Computer Vision
     - [X] profile
-    - [ ] Refactor Signal
-        - [ ] Manhattan Distance
-    - [ ] Bit compression
-        - [ ] FOV -> UP DOWN LEFT RIGHT ? ABOVE BELOW ? - cardinal directions truth table
-        - [ ] Unique POS
 - Individual Fitness
 - Train Test Valid Split
 - Genetic algorithm solver
@@ -47,3 +49,12 @@
 - stasis - action witnesses
 - lut -> state -> action
 - energy evaluation (stasis claim)
+    - Species
+    - [X] LUT Generation with >minimum decidable nodes
+- Genome Refactor
+    - [X] Species Chromosomes
+    - [X] Individual Chromosomes
+    - [X] Haplotype
+    - [X] Allele -> Strip Gene metadata (e.g. high, low)
+    - [X] Chromosome accept Species Structure
+    - [X] Genome accepts Species; genes themselves are fixed cardinality

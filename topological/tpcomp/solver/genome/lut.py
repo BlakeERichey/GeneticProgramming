@@ -3,8 +3,9 @@ from bitarray import bitarray
 from bitarray.util import ba2int
 import logging
 
-def make_mask(num_actions, act_nodes):
-    n_act_nodes = len(act_nodes)
+def make_mask(num_actions, members):
+    haplotype = members[0]
+    n_act_nodes = haplotype.arity
     min_true = int(np.floor(np.log2(num_actions))) + 1
 
     if n_act_nodes < min_true:
